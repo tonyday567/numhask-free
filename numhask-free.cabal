@@ -46,6 +46,7 @@ library
     containers,
     numhask,
   exposed-modules:
+    NumHask.Diff
     NumHask.Free
     NumHask.Free.Additive
     NumHask.Free.Carriers
