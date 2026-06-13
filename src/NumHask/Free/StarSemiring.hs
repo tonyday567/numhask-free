@@ -102,12 +102,12 @@ eval (Embed a) = a
 
 -- ---------------------------------------------------------------------------
 -- The free object is an instance of its own class — that is what
--- \"free\" means.  These instances are what let 'NumHask.Free.Matrix.starMatrix'
+-- \"free\" means.  These instances are what let 'Harpie.NumHask.Matrix.starMatrix'
 -- run at carrier @StarSemiring a@: Kleene's state elimination, the
 -- fourth face of the four-for-one.
 
 -- | Methods are the smart constructors, so identity absorption
--- happens during 'NumHask.Free.Matrix.starMatrix'\'s block recursion
+-- happens during a matrix-star computation's block recursion
 -- rather than after it.
 --
 -- >>> import qualified NumHask.Algebra.Ring as NHR
@@ -179,11 +179,11 @@ fromMultiplicative (HM.Embed a) = Embed a
 -- Star (Embed "x")
 --
 -- Value-preserving for idempotent targets — executable witness over
--- the 'NumHask.Free.Matrix.Warshall' Kleene algebra (a law, not a proof;
+-- the 'Warshall' Kleene algebra (a law, not a proof;
 -- the @Arbitrary@-powered property awaits a test-suite home rather
 -- than a doctest):
 --
--- >>> import NumHask.Free.Matrix (Warshall (..))
+-- >>> import NumHask.Free.Carriers (Warshall (..))
 -- >>> let t = times (plus (embed (Warshall True)) (embed (Warshall True))) (embed (Warshall False))
 -- >>> (eval (kleeneSimplify t), eval t)
 -- (Warshall False,Warshall False)

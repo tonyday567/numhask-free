@@ -48,8 +48,8 @@ library
   exposed-modules:
     NumHask.Free
     NumHask.Free.Additive
+    NumHask.Free.Carriers
     NumHask.Free.Divisive
-    NumHask.Free.Matrix
     NumHask.Free.Multiplicative
     NumHask.Free.Polynomial
     NumHask.Free.Ring
