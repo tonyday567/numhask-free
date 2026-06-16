@@ -40,11 +40,11 @@ module NumHask.Diff
   )
 where
 
-#ifdef __GLASGOW_HASKELL__
+
 import Control.Category
-#else
-import NumHask.Prelude (Category (..))
-#endif
+
+
+
 import NumHask.Algebra.Additive qualified as NHA
 import NumHask.Algebra.Field qualified as NHF
 import NumHask.Algebra.Multiplicative qualified as NHM
@@ -91,7 +91,7 @@ instance Category (Diff' p) where
 -- @zero@ is the constant zero function; @(+)@ adds outputs and fans-in
 -- cotangents.
 instance (NHA.Additive s, NHA.Additive b) => NHA.Additive (Diff' p s b) where
-  zero = Diff (\_ -> (NHA.zero, const NHA.zero))
+  zero = Diff (const (NHA.zero, const NHA.zero))
 
   Diff f + Diff g = Diff $ \s ->
     let (b1, p1) = f s
@@ -102,7 +102,7 @@ instance (NHA.Additive s, NHA.Additive b) => NHA.Additive (Diff' p s b) where
 instance (NHA.Additive s, NHA.Subtractive s, NHA.Subtractive b) => NHA.Subtractive (Diff' p s b) where
   negate (Diff f) = Diff $ \s ->
     let (b, p) = f s
-     in (NHA.negate b, \db -> NHA.negate (p db))
+     in (NHA.negate b, NHA.negate . p)
 
   Diff f - Diff g = Diff $ \s ->
     let (b1, p1) = f s
@@ -113,7 +113,7 @@ instance (NHA.Additive s, NHA.Subtractive s, NHA.Subtractive b) => NHA.Subtracti
 --
 -- @one@ is the constant one function.
 instance (NHA.Additive s, NHM.Multiplicative b) => NHM.Multiplicative (Diff' p s b) where
-  one = Diff (\_ -> (NHM.one, const NHA.zero))
+  one = Diff (const (NHM.one, const NHA.zero))
 
   Diff f * Diff g = Diff $ \s ->
     let (b1, p1) = f s
@@ -158,7 +158,7 @@ instance
   ) =>
   NHF.TrigField (Diff' p s b)
   where
-  pi = Diff (\_ -> (NHF.pi, const NHA.zero))
+  pi = Diff (const (NHF.pi, const NHA.zero))
 
   sin (Diff f) = Diff $ \s ->
     let (b, p) = f s
@@ -231,7 +231,7 @@ instance (P.Num s, P.Num b) => P.Num (Diff' p s b) where
 
   negate (Diff f) = Diff $ \s ->
     let (b, p) = f s
-     in (P.negate b, \db -> P.negate (p db))
+     in (P.negate b, P.negate . p)
 
   Diff f - Diff g = Diff $ \s ->
     let (b1, p1) = f s
@@ -241,4 +241,5 @@ instance (P.Num s, P.Num b) => P.Num (Diff' p s b) where
   abs _ = P.error "NumHask.Diff: abs is not differentiable at 0"
   signum _ = P.error "NumHask.Diff: signum is not differentiable at 0"
 
-  fromInteger n = Diff (\_ -> (P.fromInteger n, const 0))
+  fromInteger n = Diff (const (P.fromInteger n, const 0))
+
