@@ -16,12 +16,12 @@ module NumHask.Free.Ring
   )
 where
 
+import NumHask.Algebra.Additive qualified as NHA
+import NumHask.Algebra.Multiplicative qualified as NHM
+import NumHask.Algebra.Ring qualified as NHR
 import NumHask.Free.Additive qualified as HA
 import NumHask.Free.Multiplicative qualified as HM
 import NumHask.Free.Subtractive qualified as HS
-import qualified NumHask.Algebra.Additive as NHA
-import qualified NumHask.Algebra.Multiplicative as NHM
-import qualified NumHask.Algebra.Ring as NHR
 import Prelude (Eq, Show)
 
 -- | Free ring over a carrier type.
@@ -77,7 +77,7 @@ embed = Embed
 -- | Evaluate a term into any 'NumHask.Algebra.Ring.Ring'.
 --
 -- This is the unique homomorphism out of the free ring.
-eval :: NHR.Ring a => Ring a -> a
+eval :: (NHR.Ring a) => Ring a -> a
 eval Zero = NHA.zero
 eval One = NHM.one
 eval (Plus a b) = eval a NHA.+ eval b

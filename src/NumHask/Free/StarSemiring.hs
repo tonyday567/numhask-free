@@ -21,11 +21,11 @@ where
 
 import Data.Set (Set)
 import Data.Set qualified as S
-import NumHask.Free.Additive qualified as HA
-import NumHask.Free.Multiplicative qualified as HM
 import NumHask.Algebra.Additive qualified as NHA
 import NumHask.Algebra.Multiplicative qualified as NHM
 import NumHask.Algebra.Ring qualified as NHR
+import NumHask.Free.Additive qualified as HA
+import NumHask.Free.Multiplicative qualified as HM
 import Prelude (Eq, Ord, Show, foldr1, (.))
 
 -- $setup
@@ -92,7 +92,7 @@ embed = Embed
 -- | Evaluate a term into any 'NumHask.Algebra.Ring.StarSemiring'.
 --
 -- This is the unique homomorphism out of the free star semiring.
-eval :: NHR.StarSemiring a => StarSemiring a -> a
+eval :: (NHR.StarSemiring a) => StarSemiring a -> a
 eval Zero = NHA.zero
 eval One = NHM.one
 eval (Plus a b) = eval a NHA.+ eval b
@@ -187,13 +187,13 @@ fromMultiplicative (HM.Embed a) = Embed a
 -- >>> let t = times (plus (embed (Warshall True)) (embed (Warshall True))) (embed (Warshall False))
 -- >>> (eval (kleeneSimplify t), eval t)
 -- (Warshall False,Warshall False)
-kleeneSimplify :: Ord a => StarSemiring a -> StarSemiring a
+kleeneSimplify :: (Ord a) => StarSemiring a -> StarSemiring a
 kleeneSimplify = fromSet . toSet
   where
-    normChild :: Ord a => StarSemiring a -> StarSemiring a
+    normChild :: (Ord a) => StarSemiring a -> StarSemiring a
     normChild = kleeneSimplify
 
-    toSet :: Ord a => StarSemiring a -> Set (StarSemiring a)
+    toSet :: (Ord a) => StarSemiring a -> Set (StarSemiring a)
     toSet Zero = S.empty
     toSet (Plus a b) = S.union (toSet a) (toSet b)
     toSet (Times a b) = S.singleton (Times (normChild a) (normChild b))

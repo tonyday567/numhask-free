@@ -10,7 +10,7 @@ module NumHask.Free.Multiplicative
   )
 where
 
-import qualified NumHask.Algebra.Multiplicative as NH
+import NumHask.Algebra.Multiplicative qualified as NH
 import Prelude (Eq, Show)
 import Prelude qualified as P
 
@@ -44,7 +44,7 @@ embed = Embed
 -- | Evaluate a term into any 'NumHask.Algebra.Multiplicative.Multiplicative'.
 --
 -- This is the unique homomorphism out of the free monoid.
-eval :: NH.Multiplicative a => Multiplicative a -> a
+eval :: (NH.Multiplicative a) => Multiplicative a -> a
 eval One = NH.one
 eval (Times a b) = eval a NH.* eval b
 eval (Embed a) = a

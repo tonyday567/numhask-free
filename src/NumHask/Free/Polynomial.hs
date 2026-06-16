@@ -33,12 +33,12 @@ where
 import Data.List (sort)
 import Data.Map (Map)
 import Data.Map qualified as M
-import NumHask.Free.Ring
 import NumHask.Algebra.Additive qualified as NHA
 import NumHask.Algebra.Multiplicative qualified as NHM
 import NumHask.Algebra.Ring qualified as NHR
 import NumHask.Data.Integral qualified as NHI
-import Prelude (Eq, Integer, Ord, Show, foldr, (.), (/=), (+), (*))
+import NumHask.Free.Ring
+import Prelude (Eq, Integer, Ord, Show, foldr, (*), (+), (.), (/=))
 import Prelude qualified as P
 
 -- $setup
@@ -74,7 +74,7 @@ newtype NCPolynomial a = NCPolynomial {unNCPolynomial :: Map [a] Integer}
 -- >>> let comm = minus (times (embed "x") (embed "y")) (times (embed "y") (embed "x"))
 -- >>> toWord comm
 -- NCPolynomial {unNCPolynomial = fromList [(["x","y"],1),(["y","x"],-1)]}
-toWord :: Ord a => Ring a -> NCPolynomial a
+toWord :: (Ord a) => Ring a -> NCPolynomial a
 toWord = NCPolynomial . M.filter (/= (0 :: Integer)) . go
   where
     go Zero = M.empty
@@ -86,14 +86,14 @@ toWord = NCPolynomial . M.filter (/= (0 :: Integer)) . go
       M.fromListWith
         (+)
         [ (m1 P.++ m2, c1 * c2)
-          | (m1, c1) <- M.toList (go r),
-            (m2, c2) <- M.toList (go s)
+        | (m1, c1) <- M.toList (go r),
+          (m2, c2) <- M.toList (go s)
         ]
 
 -- | Quotient ℤ⟨a⟩ → ℤ[a]: sort each word into a monomial bag and
 -- collect.  Coefficients that cancel under the identification are
 -- dropped.
-abelianize :: Ord a => NCPolynomial a -> Polynomial a
+abelianize :: (Ord a) => NCPolynomial a -> Polynomial a
 abelianize (NCPolynomial m) =
   Polynomial
     ( M.filter
@@ -110,7 +110,7 @@ abelianize (NCPolynomial m) =
 -- >>> let comm = minus (times (embed "x") (embed "y")) (times (embed "y") (embed "x"))
 -- >>> toPolynomial comm
 -- Polynomial {unPolynomial = fromList []}
-toPolynomial :: Ord a => Ring a -> Polynomial a
+toPolynomial :: (Ord a) => Ring a -> Polynomial a
 toPolynomial = abelianize . toWord
 
 -- | Reconstruct a 'Ring' term from polynomial normal form.
@@ -135,9 +135,11 @@ evalPolynomial ::
   Polynomial a ->
   b
 evalPolynomial f (Polynomial m) =
-  foldr (NHA.+) NHA.zero
+  foldr
+    (NHA.+)
+    NHA.zero
     [ NHI.fromInteger c NHM.* foldr (NHM.*) NHM.one [f x | x <- ms]
-      | (ms, c) <- M.toList m
+    | (ms, c) <- M.toList m
     ]
 
 -- | Evaluate a noncommutative polynomial via a generator assignment.
@@ -151,7 +153,9 @@ evalNCPolynomial ::
   NCPolynomial a ->
   b
 evalNCPolynomial f (NCPolynomial m) =
-  foldr (NHA.+) NHA.zero
+  foldr
+    (NHA.+)
+    NHA.zero
     [ NHI.fromInteger c NHM.* foldr (NHM.*) NHM.one [f x | x <- ms]
-      | (ms, c) <- M.toList m
+    | (ms, c) <- M.toList m
     ]

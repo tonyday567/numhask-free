@@ -11,5 +11,4 @@
 -- Each level exports the same vocabulary ('zero', 'plus', 'embed',
 -- 'eval') over distinct types, so qualified imports are recommended
 -- when mixing levels.
-module NumHask.Free
-where
+module NumHask.Free where

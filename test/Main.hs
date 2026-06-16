@@ -6,9 +6,11 @@ import Prelude
 
 assert :: String -> Bool -> IO ()
 assert msg ok = do
-  if ok then putStrLn ("✓ " ++ msg) else do
-    putStrLn ("✗ " ++ msg)
-    exitFailure
+  if ok
+    then putStrLn ("✓ " ++ msg)
+    else do
+      putStrLn ("✗ " ++ msg)
+      exitFailure
 
 main :: IO ()
 main = do

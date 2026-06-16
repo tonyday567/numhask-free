@@ -28,5 +28,4 @@
 --
 -- Neither route yields a naive @Recip@ constructor with equations,
 -- because the equations do not exist.  hasknum stops here.
-module NumHask.Free.Divisive
-where
+module NumHask.Free.Divisive where

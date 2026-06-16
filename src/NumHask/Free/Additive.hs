@@ -10,7 +10,7 @@ module NumHask.Free.Additive
   )
 where
 
-import qualified NumHask.Algebra.Additive as NH
+import NumHask.Algebra.Additive qualified as NH
 import Prelude (Eq, Show)
 import Prelude qualified as P
 
@@ -51,7 +51,7 @@ embed = Embed
 --
 -- >>> eval (plus (embed 1) (embed 2))
 -- 3
-eval :: NH.Additive a => Additive a -> a
+eval :: (NH.Additive a) => Additive a -> a
 eval Zero = NH.zero
 eval (Plus a b) = eval a NH.+ eval b
 eval (Embed a) = a

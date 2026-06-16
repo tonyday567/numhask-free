@@ -11,7 +11,7 @@ module NumHask.Free.Subtractive
   )
 where
 
-import qualified NumHask.Algebra.Additive as NH
+import NumHask.Algebra.Additive qualified as NH
 import Prelude (Eq, Show)
 
 -- | Free abelian group over a carrier type.
@@ -55,7 +55,7 @@ embed = Embed
 -- | Evaluate a term into any 'NumHask.Algebra.Additive.Subtractive'.
 --
 -- This is the unique homomorphism out of the free abelian group.
-eval :: NH.Subtractive a => Subtractive a -> a
+eval :: (NH.Subtractive a) => Subtractive a -> a
 eval Zero = NH.zero
 eval (Plus a b) = eval a NH.+ eval b
 eval (Negate a) = NH.negate (eval a)
