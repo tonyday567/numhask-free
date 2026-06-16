@@ -1,6 +1,6 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE PolyKinds #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-pattern-namespace-specifier #-}
 
@@ -37,19 +37,17 @@ module NumHask.Diff
     Diff' (..),
     pattern Diff,
     runDiff,
+
+    -- * Branch-visible non-smooth primitives
+    maxWith,
+    minWith,
+    absWith,
+    signumWith,
   )
 where
 
-#ifdef __GLASGOW_HASKELL__
-import Control.Category
-#else
-import NumHask.Prelude (Category (..))
-#endif
-import NumHask.Algebra.Additive qualified as NHA
-import NumHask.Algebra.Field qualified as NHF
-import NumHask.Algebra.Multiplicative qualified as NHM
-import Prelude hiding (id, (.))
-import Prelude qualified as P
+import NumHask.Prelude
+import Prelude ()
 
 -- | A reverse-mode differentiable function tagged by a phantom type @p@.
 --
@@ -90,155 +88,317 @@ instance Category (Diff' p) where
 --
 -- @zero@ is the constant zero function; @(+)@ adds outputs and fans-in
 -- cotangents.
-instance (NHA.Additive s, NHA.Additive b) => NHA.Additive (Diff' p s b) where
-  zero = Diff (\_ -> (NHA.zero, const NHA.zero))
+instance (Additive s, Additive b) => Additive (Diff' p s b) where
+  zero = Diff (\_ -> (zero, const zero))
 
   Diff f + Diff g = Diff $ \s ->
     let (b1, p1) = f s
         (b2, p2) = g s
-     in (b1 NHA.+ b2, \db -> p1 db NHA.+ p2 db)
+     in (b1 + b2, \db -> p1 db + p2 db)
 
 -- | Subtractive structure: negation pushes through the pullback.
-instance (NHA.Additive s, NHA.Subtractive s, NHA.Subtractive b) => NHA.Subtractive (Diff' p s b) where
+instance (Additive s, Subtractive s, Subtractive b) => Subtractive (Diff' p s b) where
   negate (Diff f) = Diff $ \s ->
     let (b, p) = f s
-     in (NHA.negate b, \db -> NHA.negate (p db))
+     in (negate b, \db -> negate (p db))
 
   Diff f - Diff g = Diff $ \s ->
     let (b1, p1) = f s
         (b2, p2) = g s
-     in (b1 NHA.- b2, \db -> p1 db NHA.- p2 db)
+     in (b1 - b2, \db -> p1 db - p2 db)
 
 -- | Multiplicative structure: product rule.
 --
 -- @one@ is the constant one function.
-instance (NHA.Additive s, NHM.Multiplicative b) => NHM.Multiplicative (Diff' p s b) where
-  one = Diff (\_ -> (NHM.one, const NHA.zero))
+instance (Additive s, Multiplicative b) => Multiplicative (Diff' p s b) where
+  one = Diff (\_ -> (one, const zero))
 
   Diff f * Diff g = Diff $ \s ->
     let (b1, p1) = f s
         (b2, p2) = g s
-     in (b1 NHM.* b2, \db -> p1 (db NHM.* b2) NHA.+ p2 (b1 NHM.* db))
+     in (b1 * b2, \db -> p1 (db * b2) + p2 (b1 * db))
 
 -- | Divisive structure: reciprocal rule.
 --
 -- Division inherits the product rule via the default @'/' = '*' . 'recip'@.
 instance
-  (NHA.Additive s, NHA.Subtractive b, NHM.Multiplicative b, NHM.Divisive b) =>
-  NHM.Divisive (Diff' p s b)
+  (Additive s, Subtractive b, Multiplicative b, Divisive b) =>
+  Divisive (Diff' p s b)
   where
   recip (Diff f) = Diff $ \s ->
     let (b, p) = f s
-        r = NHM.recip b
-        rr = r NHM.* r
-     in (r, \db -> p (NHA.negate (db NHM.* rr)))
+        r = recip b
+        rr = r * r
+     in (r, \db -> p (negate (db * rr)))
 
 -- | Exponential field: @exp@, @log@, and the derived power/root family.
 instance
-  (NHF.ExpField b, NHA.Additive s, NHA.Subtractive s, NHM.Multiplicative b) =>
-  NHF.ExpField (Diff' p s b)
+  (ExpField b, Additive s, Subtractive s, Multiplicative b) =>
+  ExpField (Diff' p s b)
   where
   exp (Diff f) = Diff $ \s ->
     let (b, p) = f s
-        e = NHF.exp b
-     in (e, \db -> p (db NHM.* e))
+        e = exp b
+     in (e, \db -> p (db * e))
 
   log (Diff f) = Diff $ \s ->
     let (b, p) = f s
-     in (NHF.log b, \db -> p (db NHM.* NHM.recip b))
+     in (log b, \db -> p (db * recip b))
 
 -- | Trigonometric field: the elementary transcendental family.
 instance
-  ( NHF.TrigField b,
-    NHF.ExpField b,
-    NHA.Additive s,
-    NHA.Subtractive s,
-    NHM.Multiplicative b,
-    NHM.Divisive b
+  ( TrigField b,
+    ExpField b,
+    Additive s,
+    Subtractive s,
+    Multiplicative b,
+    Divisive b
   ) =>
-  NHF.TrigField (Diff' p s b)
+  TrigField (Diff' p s b)
   where
-  pi = Diff (\_ -> (NHF.pi, const NHA.zero))
+  pi = Diff (\_ -> (pi, const zero))
 
   sin (Diff f) = Diff $ \s ->
     let (b, p) = f s
-     in (NHF.sin b, \db -> p (db NHM.* NHF.cos b))
+     in (sin b, \db -> p (db * cos b))
 
   cos (Diff f) = Diff $ \s ->
     let (b, p) = f s
-     in (NHF.cos b, \db -> p (NHA.negate (db NHM.* NHF.sin b)))
+     in (cos b, \db -> p (negate (db * sin b)))
 
   asin (Diff f) = Diff $ \s ->
     let (b, p) = f s
-        d = NHM.recip (NHF.sqrt (NHM.one NHA.- b NHM.* b))
-     in (NHF.asin b, \db -> p (db NHM.* d))
+        d = recip (sqrt (one - b * b))
+     in (asin b, \db -> p (db * d))
 
   acos (Diff f) = Diff $ \s ->
     let (b, p) = f s
-        d = NHM.recip (NHF.sqrt (NHM.one NHA.- b NHM.* b))
-     in (NHF.acos b, \db -> p (NHA.negate (db NHM.* d)))
+        d = recip (sqrt (one - b * b))
+     in (acos b, \db -> p (negate (db * d)))
 
   atan (Diff f) = Diff $ \s ->
     let (b, p) = f s
-        d = NHM.recip (NHM.one NHA.+ b NHM.* b)
-     in (NHF.atan b, \db -> p (db NHM.* d))
+        d = recip (one + b * b)
+     in (atan b, \db -> p (db * d))
 
   atan2 (Diff f) (Diff g) = Diff $ \s ->
     let (y, py) = f s
         (x, px) = g s
-        r = NHF.atan2 y x
-        denom = y NHM.* y NHA.+ x NHM.* x
-        dy = x NHM./ denom
-        dx = NHA.negate (y NHM./ denom)
-     in (r, \db -> py (db NHM.* dy) NHA.+ px (db NHM.* dx))
+        r = atan2 y x
+        denom = y * y + x * x
+        dy = x / denom
+        dx = negate (y / denom)
+     in (r, \db -> py (db * dy) + px (db * dx))
 
   sinh (Diff f) = Diff $ \s ->
     let (b, p) = f s
-     in (NHF.sinh b, \db -> p (db NHM.* NHF.cosh b))
+     in (sinh b, \db -> p (db * cosh b))
 
   cosh (Diff f) = Diff $ \s ->
     let (b, p) = f s
-     in (NHF.cosh b, \db -> p (db NHM.* NHF.sinh b))
+     in (cosh b, \db -> p (db * sinh b))
 
   asinh (Diff f) = Diff $ \s ->
     let (b, p) = f s
-        d = NHM.recip (NHF.sqrt (b NHM.* b NHA.+ NHM.one))
-     in (NHF.asinh b, \db -> p (db NHM.* d))
+        d = recip (sqrt (b * b + one))
+     in (asinh b, \db -> p (db * d))
 
   acosh (Diff f) = Diff $ \s ->
     let (b, p) = f s
-        d = NHM.recip (NHF.sqrt (b NHM.* b NHA.- NHM.one))
-     in (NHF.acosh b, \db -> p (db NHM.* d))
+        d = recip (sqrt (b * b - one))
+     in (acosh b, \db -> p (db * d))
 
   atanh (Diff f) = Diff $ \s ->
     let (b, p) = f s
-        d = NHM.recip (NHM.one NHA.- b NHM.* b)
-     in (NHF.atanh b, \db -> p (db NHM.* d))
+        d = recip (one - b * b)
+     in (atanh b, \db -> p (db * d))
 
--- | Mechanical 'Num' mirror so that base-polymorphic code can also use 'Diff'
--- as its carrier.  Non-smooth methods ('abs', 'signum') raise an error; the
--- useful cases (literals, '+', '*', '-') work out of the box.
-instance (P.Num s, P.Num b) => P.Num (Diff' p s b) where
-  Diff f + Diff g = Diff $ \s ->
-    let (b1, p1) = f s
-        (b2, p2) = g s
-     in (b1 P.+ b2, \db -> p1 db P.+ p2 db)
+-- | Equality is not decidable for differentiable arrows, but a vacuous
+-- 'Eq' instance is provided so that 'JoinSemiLattice' and 'MeetSemiLattice'
+-- can be lifted.  Treat '==' as always false.
+instance Eq (Diff' p s b) where
+  _ == _ = False
 
-  Diff f * Diff g = Diff $ \s ->
-    let (b1, p1) = f s
-        (b2, p2) = g s
-     in (b1 P.* b2, \db -> p1 (db P.* b2) P.+ p2 (b1 P.* db))
+-- | Lattice structure lifted pointwise.  Join is minimum, meet is maximum
+-- (matching 'NumHask.Algebra.Lattice' for ordered scalar types).  Ties
+-- choose the left argument; at ties the derivative is discontinuous.
+instance (Ord b) => JoinSemiLattice (Diff' p s b) where
+  Diff f \/ Diff g = Diff $ \s ->
+    let (x, px) = f s
+        (y, py) = g s
+     in if x <= y then (x, px) else (y, py)
 
-  negate (Diff f) = Diff $ \s ->
-    let (b, p) = f s
-     in (P.negate b, \db -> P.negate (p db))
+instance (Ord b) => MeetSemiLattice (Diff' p s b) where
+  Diff f /\ Diff g = Diff $ \s ->
+    let (x, px) = f s
+        (y, py) = g s
+     in if x >= y then (x, px) else (y, py)
 
-  Diff f - Diff g = Diff $ \s ->
-    let (b1, p1) = f s
-        (b2, p2) = g s
-     in (b1 P.- b2, \db -> p1 db P.- p2 db)
+instance (Ord b, LowerBounded b, Additive s) => LowerBounded (Diff' p s b) where
+  bottom = Diff (\_ -> (bottom, const zero))
 
-  abs _ = P.error "NumHask.Diff: abs is not differentiable at 0"
-  signum _ = P.error "NumHask.Diff: signum is not differentiable at 0"
+instance (Ord b, UpperBounded b, Additive s) => UpperBounded (Diff' p s b) where
+  top = Diff (\_ -> (top, const zero))
 
-  fromInteger n = Diff (\_ -> (P.fromInteger n, const 0))
+-- | Additive action by a constant scalar.
+instance (AdditiveAction b) => AdditiveAction (Diff' p s b) where
+  type AdditiveScalar (Diff' p s b) = AdditiveScalar b
+  Diff f |+ k = Diff $ \s ->
+    let (x, p) = f s
+     in (x |+ k, p)
+
+-- | Subtractive action by a constant scalar.
+instance (SubtractiveAction b) => SubtractiveAction (Diff' p s b) where
+  Diff f |- k = Diff $ \s ->
+    let (x, p) = f s
+     in (x |- k, p)
+
+-- | Multiplicative action by a constant scalar.
+instance (MultiplicativeAction b) => MultiplicativeAction (Diff' p s b) where
+  type Scalar (Diff' p s b) = Scalar b
+  Diff f |* k = Diff $ \s ->
+    let (x, p) = f s
+     in (x |* k, \dz -> p (dz |* k))
+
+-- | Divisive action by a constant scalar.
+instance (DivisiveAction b) => DivisiveAction (Diff' p s b) where
+  Diff f |/ k = Diff $ \s ->
+    let (x, p) = f s
+     in (x |/ k, \dz -> p (dz |/ k))
+
+-- | Basis structure for endo-based carriers.  'magnitude' differentiates
+-- through 'basis'; 'basis' itself is treated as piecewise constant (zero
+-- pullback).  At the kink this is only a subgradient.
+instance
+  (Basis b, Mag b ~ b, Base b ~ b, Additive s) =>
+  Basis (Diff' p s b)
+  where
+  type Mag (Diff' p s b) = Diff' p s b
+  type Base (Diff' p s b) = Diff' p s b
+  magnitude (Diff f) = Diff $ \s ->
+    let (x, p) = f s
+     in (magnitude x, \dm -> p (basis x * dm))
+  basis (Diff f) = Diff $ \s ->
+    let (x, _) = f s
+     in (basis x, const zero)
+
+-- | Direction for 'EuclideanPair'.
+--
+-- 'angle' differentiates through @atan2 y x@; 'ray' differentiates through
+-- @(cos t, sin t)@.  Both are undefined at the origin.
+instance (TrigField a, Additive s) => Direction (Diff' p s (EuclideanPair a)) where
+  type Dir (Diff' p s (EuclideanPair a)) = Diff' p s a
+  angle (Diff f) = Diff $ \s ->
+    let (EuclideanPair (x, y), p) = f s
+        r2 = x * x + y * y
+     in (atan2 y x, \dt -> p (EuclideanPair (negate y * dt / r2, x * dt / r2)))
+  ray (Diff f) = Diff $ \s ->
+    let (t, p) = f s
+        c = cos t
+        sn = sin t
+     in (EuclideanPair (c, sn), \dxy ->
+          let EuclideanPair (dx, dy) = dxy
+           in p (dx * negate sn + dy * c))
+
+-- | Direction for 'Complex'.
+--
+-- Same geometry as 'EuclideanPair'; 'Complex' already has a 'Direction'
+-- instance via 'EuclideanPair', so we mirror the derivative here.
+instance (TrigField a, Additive s) => Direction (Diff' p s (Complex a)) where
+  type Dir (Diff' p s (Complex a)) = Diff' p s a
+  angle (Diff f) = Diff $ \s ->
+    let (Complex (x, y), p) = f s
+        r2 = x * x + y * y
+     in (atan2 y x, \dt -> p (Complex (negate y * dt / r2, x * dt / r2)))
+  ray (Diff f) = Diff $ \s ->
+    let (t, p) = f s
+        c = cos t
+        sn = sin t
+     in (Complex (c, sn), \dxy ->
+          let Complex (dx, dy) = dxy
+           in p (dx * negate sn + dy * c))
+
+-- | Literal support via 'FromInteger'.  With 'RebindableSyntax' enabled,
+-- integer literals like @1@ can be used at type @Diff s b@.
+instance (FromInteger b, Additive s) => FromInteger (Diff' p s b) where
+  fromInteger n = Diff (\_ -> (fromInteger n, const zero))
+
+-- | Literal support via 'FromRational'.  With 'RebindableSyntax' enabled,
+-- decimal literals like @2.0@ can be used at type @Diff s b@.
+instance (FromRational b, Additive s) => FromRational (Diff' p s b) where
+  fromRational r = Diff (\_ -> (fromRational r, const zero))
+
+-- ---------------------------------------------------------------------------
+-- Branch-visible non-smooth primitives
+-- ---------------------------------------------------------------------------
+
+-- | Maximum with a visible branch decision.
+--
+-- Returns the larger value and a boolean that is 'True' exactly when the
+-- left argument was chosen (ties choose the left).
+--
+-- The pullback routes the output cotangent to the active argument; the
+-- boolean is returned purely for inspection and does not receive a
+-- cotangent.
+maxWith ::
+  (Ord b) =>
+  Diff' p s b ->
+  Diff' p s b ->
+  Diff' p s (b, Bool)
+maxWith (Diff f) (Diff g) = Diff $ \s ->
+  let (x, px) = f s
+      (y, py) = g s
+      c = x >= y
+      z = case c of True -> x; False -> y
+   in ( (z, c),
+        \(dz, _) -> case c of True -> px dz; False -> py dz
+      )
+
+-- | Minimum with a visible branch decision.
+--
+-- Returns the smaller value and a boolean that is 'True' exactly when the
+-- left argument was chosen (ties choose the left).
+minWith ::
+  (Ord b) =>
+  Diff' p s b ->
+  Diff' p s b ->
+  Diff' p s (b, Bool)
+minWith (Diff f) (Diff g) = Diff $ \s ->
+  let (x, px) = f s
+      (y, py) = g s
+      c = x <= y
+      z = case c of True -> x; False -> y
+   in ( (z, c),
+        \(dz, _) -> case c of True -> px dz; False -> py dz
+      )
+
+-- | Absolute value with a visible sign decision.
+--
+-- Returns @('abs' x, x >= 0)@.  At the kink @x = 0@ the boolean is 'True'
+-- by convention; the caller can inspect it and supply a custom subgradient
+-- if needed.
+absWith ::
+  (Ord b, Subtractive b, Multiplicative b) =>
+  Diff' p s b ->
+  Diff' p s (b, Bool)
+absWith (Diff f) = Diff $ \s ->
+  let (x, p) = f s
+      c = x >= zero
+      y = case c of True -> x; False -> negate x
+      u = case c of True -> one; False -> negate one
+   in ((y, c), \(dz, _) -> p (dz * u))
+
+-- | Signum with a visible sign decision.
+--
+-- Returns @(sign x, x >= 0)@ where @sign x@ is 'one' for non-negative @x@
+-- and 'negate one' for negative @x@.  The pullback is zero because 'signum'
+-- is piecewise constant.
+signumWith ::
+  (Ord b, Subtractive b, Multiplicative b, Additive s) =>
+  Diff' p s b ->
+  Diff' p s (b, Bool)
+signumWith (Diff f) = Diff $ \s ->
+  let (x, _) = f s
+      c = x >= zero
+      y = case c of True -> one; False -> negate one
+   in ((y, c), const zero)
